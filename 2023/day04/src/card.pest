@@ -1,0 +1,5 @@
+card = { "Card" ~ id ~ ":" ~ winning+ ~ "|" ~ number+ }
+id = { ASCII_DIGIT+ }
+number = @{ ASCII_DIGIT+ }
+winning = @{ ASCII_DIGIT+ }
+WHITESPACE = _{ " " }

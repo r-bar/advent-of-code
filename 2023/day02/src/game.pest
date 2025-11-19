@@ -1,0 +1,7 @@
+game = { "Game" ~ game_number ~ ":" ~ ( set ~ ";"? )+ }
+game_number = { ASCII_DIGIT+ }
+color = { "red" | "green" | "blue" }
+count = { ASCII_DIGIT+ }
+set = { ( pick ~ ","? )+ }
+pick = { count ~ color }
+WHITESPACE = _{ " " }
