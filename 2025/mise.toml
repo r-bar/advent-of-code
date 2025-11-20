@@ -1,4 +1,5 @@
 [tools]
 "ubi:ericchiang/pup" = "v0.4.0"
-"pandoc" = "3"
+pandoc = "3"
 "ubi:roc-lang/roc" = { version = "alpha4-rolling", extract_all = true }
+cookiecutter = "2"

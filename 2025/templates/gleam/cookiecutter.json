@@ -1,0 +1,4 @@
+{
+  "day_num": 1,
+  "project_name": "day{{ '{:>02}'.format(cookiecutter.day_num) }}"
+}
