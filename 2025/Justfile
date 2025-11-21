@@ -1,5 +1,5 @@
-YEAR := "2025"
-BASE_URL := "https://adventofcode.com/2025"
+YEAR := "2024"
+BASE_URL := "https://adventofcode.com/2024"
 COOKIE := env_var("COOKIE")
 # the AoC day unlocks at midnight EST
 TODAY := `printf '%-d' $(TZ=America/New_York date +%e)`
