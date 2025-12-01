@@ -1,6 +1,6 @@
 import day01
-import simplifile
 import gleeunit
+import simplifile
 
 pub fn main() -> Nil {
   gleeunit.main()

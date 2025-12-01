@@ -8,6 +8,7 @@ import gleam/string
 import simplifile
 
 const dial_size = 100
+
 const dial_start = 50
 
 pub fn part1(input_data: String) -> Result(String, AppError) {
@@ -36,7 +37,6 @@ pub fn part2(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
   let State(_dial, count) =
     list.fold(input.lines, start_state, fn(accum: State, i) {
-      echo i
       let #(direction, magnitude) = i
       let vec = case direction {
         Left -> magnitude * -1
@@ -48,7 +48,7 @@ pub fn part2(input_data: String) -> Result(String, AppError) {
         int.modulo(vec + accum.dial, dial_size)
         |> result.lazy_unwrap(fn() { panic })
       let count = count_clicks(accum.dial, direction, magnitude) + accum.count
-      echo State(dial:, count:)
+      State(dial:, count:)
     })
   Ok(int.to_string(count))
 }
@@ -96,9 +96,9 @@ fn parse_input(input_data: String) -> Result(Input, AppError) {
     let #(line, lineno) = input
     case parse_line(line) {
       Ok(v) -> Ok([v, ..accum])
-      Error("Empty line") -> Ok(accum)
-      Error(err) ->
-        Error(InputError("Line " <> int.to_string(lineno + 1) <> ": " <> err))
+      Error(EmptyLine) -> Ok(accum)
+      Error(InputError(_, message)) -> Error(InputError(lineno, message))
+      Error(e) -> Error(e)
     }
   })
   |> result.map(list.reverse)
@@ -110,17 +110,17 @@ type Direction {
   Right
 }
 
-fn parse_line(line: String) -> Result(#(Direction, Int), String) {
+fn parse_line(line: String) -> Result(#(Direction, Int), AppError) {
   use #(direction, int_chars) <- result.try(case string.to_graphemes(line) {
     ["L", ..int_chars] -> Ok(#(Left, int_chars))
     ["R", ..int_chars] -> Ok(#(Right, int_chars))
-    [c, ..] -> Error("Invalid direction: " <> c)
-    [] -> Error("Empty line")
+    [c, ..] -> Error(InputError(-1, "Invalid direction: " <> c))
+    [] -> Error(EmptyLine)
   })
   let int_str = string.join(int_chars, "")
   use i <- result.try(
     int.parse(int_str)
-    |> result.replace_error("Invalid magnitude: " <> int_str),
+    |> result.replace_error(InputError(-1, "Invalid magnitude: " <> int_str)),
   )
   Ok(#(direction, i))
 }
@@ -135,7 +135,8 @@ type Part {
 }
 
 pub type AppError {
-  InputError(message: String)
+  EmptyLine
+  InputError(lineno: Int, message: String)
   ArgumentError(message: String)
   FileError(simplifile.FileError)
 }
@@ -172,14 +173,14 @@ fn run() -> Result(String, AppError) {
 }
 
 pub fn main() {
-  // echo int.modulo(-18, 100)
-  // echo -18 % 100
   case run() {
     Ok(res) -> io.println(res)
     Error(ArgumentError(msg)) -> {
       io.println_error(msg)
       io.println_error(usage())
     }
+    Error(InputError(lineno, message)) ->
+      io.println_error("Line " <> int.to_string(lineno) <> ": " <> message)
     Error(e) -> io.println_error(string.inspect(e))
   }
 }
