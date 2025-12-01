@@ -1,24 +1,20 @@
 import argv
+import gleam/int
 import gleam/io
 import gleam/list
+import gleam/pair
 import gleam/result
 import gleam/string
 import simplifile
 
-fn part1(input_data: String) -> Result(String, AppError) {
+pub fn part1(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
-  input.lines
-  |> list.map(string.join(_, " "))
-  |> string.join("\n")
-  |> Ok
+  Ok(string.inspect(input))
 }
 
-fn part2(input_data: String) -> Result(String, AppError) {
+pub fn part2(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
-  input.lines
-  |> list.map(string.join(_, " "))
-  |> string.join("\n")
-  |> Ok
+  Ok(string.inspect(input))
 }
 
 /// The parsed input data structure
@@ -30,11 +26,28 @@ fn parse_input(input_data: String) -> Result(Input, AppError) {
   input_data
   |> string.trim()
   |> string.split("\n")
-  |> list.map(string.split(_, " "))
-  |> Input
-  |> Ok
+  |> list.index_map(pair.new)
+  |> list.try_fold([], fn(accum, input) {
+    let #(line, lineno) = input
+    case parse_line(line) {
+      Ok(v) -> Ok([v, ..accum])
+      Error(EmptyLine) -> Ok(accum)
+      Error(InputError(_, message)) ->
+        Error(InputError(lineno, message))
+      Error(e) -> Error(e)
+    }
+  })
+  |> result.map(list.reverse)
+  |> result.map(Input)
 }
 
+fn parse_line(line: String) -> Result(List(String), AppError) {
+  case string.split(line, " ") {
+    [] -> Error(EmptyLine)
+    ["error"] -> Error(InputError(-1, "Invalid input"))
+    words -> Ok(words)
+  }
+}
 
 type App {
   App(input_file: String, part: Part)
@@ -46,6 +59,8 @@ type Part {
 }
 
 pub type AppError {
+  EmptyLine
+  InputError(lineno: Int, message: String)
   ArgumentError(message: String)
   FileError(simplifile.FileError)
 }
@@ -88,6 +103,8 @@ pub fn main() {
       io.println_error(msg)
       io.println_error(usage())
     }
+    Error(InputError(lineno, message)) ->
+      io.println_error("Line " <> int.to_string(lineno) <> ": " <> message)
     Error(e) -> io.println_error(string.inspect(e))
   }
 }
