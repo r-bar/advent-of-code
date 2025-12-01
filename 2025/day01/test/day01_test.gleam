@@ -1,7 +1,5 @@
 import day01
 import simplifile
-import gleam/io
-import gleam/result
 import gleeunit
 
 pub fn main() -> Nil {
@@ -11,4 +9,9 @@ pub fn main() -> Nil {
 pub fn part1_test() {
   let assert Ok(example) = simplifile.read("example.txt")
   assert day01.part1(example) == Ok("3")
+}
+
+pub fn part2_test() {
+  let assert Ok(example) = simplifile.read("example.txt")
+  assert day01.part2(example) == Ok("6")
 }

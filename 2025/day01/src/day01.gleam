@@ -7,20 +7,23 @@ import gleam/result
 import gleam/string
 import simplifile
 
+const dial_size = 100
+const dial_start = 50
+
 pub fn part1(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
   input.lines
-  |> list.fold([50], fn(accum, i) {
+  |> list.fold([dial_start], fn(accum, i) {
     let #(direction, magnitude) = i
     let vec = case direction {
       Left -> magnitude * -1
       Right -> magnitude
     }
-    let last = list.first(accum) |> result.unwrap(50)
+    let last = list.first(accum) |> result.unwrap(dial_start)
     // Turns out int.modulo and the % operator give different results for
     // negative numbers. int.modulo(-18, 100) == Ok(82) while -18 % 100 == -18
-    int.modulo(vec + last, 100)
-    |> result.lazy_unwrap(fn() {panic})
+    int.modulo(vec + last, dial_size)
+    |> result.lazy_unwrap(fn() { panic })
     |> list.prepend(accum, _)
   })
   |> list.count(fn(i) { i == 0 })
@@ -29,12 +32,54 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
 }
 
 pub fn part2(input_data: String) -> Result(String, AppError) {
+  let start_state = State(dial_start, 0)
   use input <- result.try(parse_input(input_data))
-  todo
-  // input.lines
-  // |> list.map(string.join(_, " "))
-  // |> string.join("\n")
-  // |> Ok
+  let State(_dial, count) =
+    list.fold(input.lines, start_state, fn(accum: State, i) {
+      echo i
+      let #(direction, magnitude) = i
+      let vec = case direction {
+        Left -> magnitude * -1
+        Right -> magnitude
+      }
+      // Turns out int.modulo and the % operator give different results for
+      // negative numbers. int.modulo(-18, 100) == Ok(82) while -18 % 100 == -18
+      let dial =
+        int.modulo(vec + accum.dial, dial_size)
+        |> result.lazy_unwrap(fn() { panic })
+      let count = count_clicks(accum.dial, direction, magnitude) + accum.count
+      echo State(dial:, count:)
+    })
+  Ok(int.to_string(count))
+}
+
+fn bool_to_int(bool: Bool) -> Int {
+  case bool {
+    True -> 1
+    False -> 0
+  }
+}
+
+fn count_clicks(start: Int, dir: Direction, mag: Int) -> Int {
+  let sum = case dir {
+    Left -> mag * -1 + start
+    Right -> mag + start
+  }
+  case sum < 0, sum == 0, dial_size <= sum {
+    False, False, False -> 0
+    True, _, _ ->
+      int.floor_divide(-1 * sum, dial_size)
+      |> result.lazy_unwrap(fn() { panic })
+      |> int.add(bool_to_int(0 < start))
+    _, True, _ -> 1
+    _, _, True ->
+      int.floor_divide(sum, dial_size)
+      |> result.lazy_unwrap(fn() { panic })
+  }
+}
+
+type State {
+  State(dial: Int, count: Int)
 }
 
 /// The parsed input data structure
