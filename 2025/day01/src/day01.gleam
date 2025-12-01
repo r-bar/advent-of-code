@@ -111,13 +111,12 @@ type Direction {
 }
 
 fn parse_line(line: String) -> Result(#(Direction, Int), AppError) {
-  use #(direction, int_chars) <- result.try(case string.to_graphemes(line) {
-    ["L", ..int_chars] -> Ok(#(Left, int_chars))
-    ["R", ..int_chars] -> Ok(#(Right, int_chars))
-    [c, ..] -> Error(InputError(-1, "Invalid direction: " <> c))
-    [] -> Error(EmptyLine)
+  use #(direction, int_str) <- result.try(case string.to_graphemes(line) {
+    "L" <> int_str -> Ok(#(Left, int_str))
+    "R" <> int_str -> Ok(#(Right, int_str))
+    "" -> Error(EmptyLine)
+    i -> Error(InputError(-1, "Invalid input: " <> i))
   })
-  let int_str = string.join(int_chars, "")
   use i <- result.try(
     int.parse(int_str)
     |> result.replace_error(InputError(-1, "Invalid magnitude: " <> int_str)),
