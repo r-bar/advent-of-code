@@ -17,7 +17,7 @@ template-day num=TODAY template="gleam": && (template-readme num) (download-inpu
 part1 num=TODAY: (template-day num)
 
 # Start part 2, update the readme with the part 2 text
-part2 num=TODAY: (template-readme num) && (git-add num)
+part2 num=TODAY: (download-prompt num) (readme-problem-desc "2" num) && (git-add num)
 
 [private]
 git-add num:
@@ -48,17 +48,33 @@ download-prompt num: tmpdir
 
 # create a README.md in the day folder with the challenge text
 template-readme num=TODAY: (download-prompt num)
-  pup 'h2:contains("Day")' text{} < tmp/day{{num}}.html \
-    | sed 's/^---/\#/' \
-    | sed 's/ ---$//' \
-    | tee -a "$(just day-dir {{num}})/README.md"
-  echo '## Part One' >> "$(just day-dir {{num}})/README.md"
-  pup --pre .day-desc < tmp/day{{num}}.html \
-    | pandoc -f html -t gfm \
-    | sed '/# --- Day/d' \
-    | sed '/Part Two/s/ ---//g' \
+  cat \
+    <(just readme-day-title {{num}}) \
+    <(echo) \
+    <(just readme-problem-desc 1 {{num}}) \
+    <(echo) \
+    <(just readme-problem-desc 2 {{num}}) \
     | tee -a "$(just day-dir {{num}})/README.md"
 
+[private]
+readme-day-title num=TODAY:
+  pup 'h2:contains("Day {{num}}")' text{} < tmp/day{{num}}.html \
+    | sed 's/^---/\#/' \
+    | sed 's/ ---$//' \
+
+[private]
+readme-problem-desc part num=TODAY:
+  if [[ "{{part}}" == "1" ]]; then echo "## Part One"; fi
+  pup --pre "article.day-desc:nth-of-type({{part}})" < tmp/day{{num}}.html \
+    | pandoc -f html -t gfm \
+    | sed '/# --- Day/d' \
+    | sed 's/# ---//' \
+    | sed 's/^# Part/## Part/' \
+    | sed 's/ ---$//'
+
+[private]
+readme-clear-problem num=TODAY:
+  sed -i '/\# Day 2:/,$d' "$(just day-dir {{num}})/README.md"
 
 # download and save the input for the given day in input.txt
 download-input num=TODAY:
