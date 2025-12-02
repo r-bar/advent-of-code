@@ -7,7 +7,7 @@ gleam run -- part1 input.txt  # Run the project
 gleam test  # Run the tests
 ```
 
-# Day 2: Gift Shop
+# Challenge: Gift Shop
 
 ## Part One
 

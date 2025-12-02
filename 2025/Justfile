@@ -61,6 +61,7 @@ readme-day-title num=TODAY:
   pup 'h2:contains("Day {{num}}")' text{} < tmp/day{{num}}.html \
     | sed 's/^---/\#/' \
     | sed 's/ ---$//' \
+    | sed 's/Day {{num}}/Challenge/'
 
 [private]
 readme-problem-desc part num=TODAY:

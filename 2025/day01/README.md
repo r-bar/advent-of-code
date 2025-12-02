@@ -6,7 +6,8 @@
 gleam run -- part1 input.txt  # Run the project
 gleam test  # Run the tests
 ```
-# Day 1: Secret Entrance
+# Challenge: Secret Entrance
+
 ## Part One
 
 The Elves have good news and bad news.
