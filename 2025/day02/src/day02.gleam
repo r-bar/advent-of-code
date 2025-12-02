@@ -138,6 +138,10 @@ fn slice_list(s: String, slice_len: Int) -> List(String) {
   [head, ..slice_list(remaining, slice_len)]
 }
 
+//
+// AOC Runtime
+//
+
 type App {
   App(input_file: String, part: Part)
 }

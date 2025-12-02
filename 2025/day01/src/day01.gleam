@@ -124,6 +124,10 @@ fn parse_line(line: String) -> Result(#(Direction, Int), AppError) {
   Ok(#(direction, i))
 }
 
+//
+// AOC Runtime
+//
+
 type App {
   App(input_file: String, part: Part)
 }

@@ -49,6 +49,10 @@ fn parse_line(line: String) -> Result(List(String), AppError) {
   }
 }
 
+//
+// AOC Runtime
+//
+
 type App {
   App(input_file: String, part: Part)
 }
