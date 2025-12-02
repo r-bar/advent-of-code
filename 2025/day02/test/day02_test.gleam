@@ -6,12 +6,22 @@ pub fn main() -> Nil {
   gleeunit.main()
 }
 
-pub fn invalid_id_test() {
-  assert day02.invalid_id(11)
-  assert day02.invalid_id(22)
-  assert day02.invalid_id(111) == False
-  assert day02.invalid_id(123123)
-  assert day02.invalid_id(12351234) == False
+pub fn invalid_id_pt1_test() {
+  assert day02.invalid_id_pt1(11)
+  assert day02.invalid_id_pt1(22)
+  assert day02.invalid_id_pt1(111) == False
+  assert day02.invalid_id_pt1(123123)
+  assert day02.invalid_id_pt1(12351234) == False
+}
+
+pub fn invalid_id_pt2_test() {
+  assert day02.invalid_id_pt2(11)
+  assert day02.invalid_id_pt2(22)
+  assert day02.invalid_id_pt2(111)
+  assert day02.invalid_id_pt2(123123)
+  assert day02.invalid_id_pt2(123412341234)
+  assert day02.invalid_id_pt2(12341234123) == False
+  assert day02.invalid_id_pt2(333333333333)
 }
 
 pub fn part1_test() {
@@ -21,5 +31,5 @@ pub fn part1_test() {
 
 pub fn part2_test() {
   let assert Ok(example) = simplifile.read("example.txt")
-  assert day02.part2(example) == Ok("")
+  assert day02.part2(example) == Ok("4174379265")
 }

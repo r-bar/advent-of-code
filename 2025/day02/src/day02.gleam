@@ -1,5 +1,5 @@
-import gleam/bool
 import argv
+import gleam/bool
 import gleam/int
 import gleam/io
 import gleam/list
@@ -14,7 +14,7 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
   |> list.flat_map(fn(id_range) {
     let #(min, max) = id_range
     range_fold(min, max + 1, [], fn(accum, id) {
-      case invalid_id(id) {
+      case invalid_id_pt1(id) {
         True -> [id, ..accum]
         False -> accum
       }
@@ -27,7 +27,19 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
 
 pub fn part2(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
-  Ok(string.inspect(input))
+  input.ranges
+  |> list.flat_map(fn(id_range) {
+    let #(min, max) = id_range
+    range_fold(min, max + 1, [], fn(accum, id) {
+      case invalid_id_pt2(id) {
+        True -> [id, ..accum]
+        False -> accum
+      }
+    })
+  })
+  |> list.fold(0, int.add)
+  |> int.to_string
+  |> Ok
 }
 
 /// The parsed input data structure
@@ -84,7 +96,7 @@ fn range_fold(start: Int, stop: Int, init: t, pred: fn(t, Int) -> t) -> t {
   }
 }
 
-pub fn invalid_id(id: Int) -> Bool {
+pub fn invalid_id_pt1(id: Int) -> Bool {
   let id_str = int.to_string(id)
   let len = string.length(id_str)
   use <- bool.guard(len % 2 != 0, False)
@@ -92,6 +104,38 @@ pub fn invalid_id(id: Int) -> Bool {
   let left_half = string.slice(id_str, 0, half)
   let right_half = string.slice(id_str, half, half)
   left_half == right_half
+}
+
+pub fn invalid_id_pt2(id: Int) -> Bool {
+  let id_str = int.to_string(id)
+  let max_pattern_len = string.length(id_str) / 2
+  invalid_id_pt2_help(id_str, max_pattern_len)
+}
+
+fn invalid_id_pt2_help(id: String, pattern_len: Int) -> Bool {
+  use <- bool.guard(pattern_len == 0, False)
+  use <- bool.lazy_guard(
+    string.length(id) % pattern_len != 0,
+    fn() { invalid_id_pt2_help(id, pattern_len - 1) },
+  )
+  case slice_list(id, pattern_len) {
+    [first, ..rest] -> {
+      list.all(rest, eq(first, _)) || invalid_id_pt2_help(id, pattern_len - 1)
+    }
+    [] -> False
+  }
+}
+
+fn eq(left: t, right: t) -> Bool {
+  left == right
+}
+
+fn slice_list(s: String, slice_len: Int) -> List(String) {
+  let str_len = string.length(s)
+  use <- bool.guard(str_len <= slice_len, [s])
+  let head = string.slice(s, 0, slice_len)
+  let remaining = string.slice(s, slice_len, string.length(s) - slice_len)
+  [head, ..slice_list(remaining, slice_len)]
 }
 
 type App {
