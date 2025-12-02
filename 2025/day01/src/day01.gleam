@@ -111,7 +111,7 @@ type Direction {
 }
 
 fn parse_line(line: String) -> Result(#(Direction, Int), AppError) {
-  use #(direction, int_str) <- result.try(case string.to_graphemes(line) {
+  use #(direction, int_str) <- result.try(case line {
     "L" <> int_str -> Ok(#(Left, int_str))
     "R" <> int_str -> Ok(#(Right, int_str))
     "" -> Error(EmptyLine)
