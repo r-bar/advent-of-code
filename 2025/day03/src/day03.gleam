@@ -9,25 +9,19 @@ import gleam/result
 import gleam/string
 import simplifile
 
-const on_limit = 2
-
 pub fn part1(input_data: String) -> Result(String, AppError) {
+  let on_limit = 2
   use input <- result.try(parse_input(input_data))
   list.map(input.batteries, largest(_, [], 0, on_limit))
-  |> list.map(fn (bank_res) {
-    let values = list.map(bank_res, pair.first)
-    list.index_fold(values, 0, fn(accum, i, index) {
-      let power =
-        list.length(values) - index - 1
-        |> int.to_float
-        |> int.power(10, _)
-        |> result.lazy_unwrap(fn() { panic })
-        |> float.truncate()
-      accum + { i * power }
-    })
-  })
-  |> list.fold(0, int.add)
-  |> int.to_string
+  |> sum_values
+  |> Ok
+}
+
+pub fn part2(input_data: String) -> Result(String, AppError) {
+  let on_limit = 12
+  use input <- result.try(parse_input(input_data))
+  list.map(input.batteries, largest(_, [], 0, on_limit))
+  |> sum_values
   |> Ok
 }
 
@@ -42,7 +36,7 @@ fn largest(
   to_pick: Int,
 ) -> List(#(Int, Int)) {
   let len = list.length(bank)
-  use <- bool.guard(len < 0, [])
+  use <- bool.guard(len < to_pick, [])
   use <- bool.guard(to_pick < 1, accum)
 
   let assert Ok(first) = list.first(bank)
@@ -70,9 +64,22 @@ fn largest(
   )
 }
 
-pub fn part2(input_data: String) -> Result(String, AppError) {
-  use input <- result.try(parse_input(input_data))
-  Ok(string.inspect(input))
+fn sum_values(largest_result: List(List(#(Int, Int)))) {
+  largest_result
+  |> list.map(fn(bank_res) {
+    let values = list.map(bank_res, pair.first)
+    list.index_fold(values, 0, fn(accum, i, index) {
+      let power =
+        list.length(values) - index - 1
+        |> int.to_float
+        |> int.power(10, _)
+        |> result.lazy_unwrap(fn() { panic })
+        |> float.truncate()
+      accum + { i * power }
+    })
+  })
+  |> list.fold(0, int.add)
+  |> int.to_string
 }
 
 /// The parsed input data structure

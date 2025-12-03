@@ -17,7 +17,8 @@ template-day num=TODAY template="gleam": && (template-readme num) (download-inpu
 part1 num=TODAY: (template-day num)
 
 # Start part 2, update the readme with the part 2 text
-part2 num=TODAY: (download-prompt num) (readme-problem-desc "2" num) && (git-add num)
+part2 num=TODAY: (download-prompt num) && (git-add num)
+  just readme-problem-desc 2 {{num}} >> "$(just day-dir {{num}})/README.md"
 
 [private]
 git-add num:
@@ -43,8 +44,10 @@ tmpdir:
 
 [private]
 download-prompt num: tmpdir
-  curl {{BASE_URL}}/day/{{num}} -H "Cookie: {{COOKIE}}" --fail > tmp/day{{num}}.html \
-    || rm -f tmp/day{{num}}.html
+  @ curl {{BASE_URL}}/day/{{num}} -sL --fail \
+    -H "Cookie: {{COOKIE}}" \
+    > tmp/day{{num}}.html \
+  || rm -f tmp/day{{num}}.html
 
 # create a README.md in the day folder with the challenge text
 template-readme num=TODAY: (download-prompt num)
@@ -67,11 +70,11 @@ readme-day-title num=TODAY:
 readme-problem-desc part num=TODAY:
   if [[ "{{part}}" == "1" ]]; then echo "## Part One"; fi
   pup --pre "article.day-desc:nth-of-type({{part}})" < tmp/day{{num}}.html \
-    | pandoc -f html -t gfm \
-    | sed '/# --- Day/d' \
-    | sed 's/# ---//' \
-    | sed 's/^# Part/## Part/' \
-    | sed 's/ ---$//'
+  | pandoc -f html -t gfm \
+  | sed '/# --- Day/d' \
+  | sed 's/# ---//' \
+  | sed 's/^# Part/## Part/' \
+  | sed 's/ ---$//'
 
 [private]
 readme-clear-problem num=TODAY:
@@ -79,8 +82,10 @@ readme-clear-problem num=TODAY:
 
 # download and save the input for the given day in input.txt
 download-input num=TODAY:
-  curl {{BASE_URL}}/day/{{num}}/input -H "Cookie: {{COOKIE}}" --fail > "$(just day-dir {{num}})/input.txt" \
-    || rm -f "$(just day-dir {{num}})/input.txt"
+  @ curl {{BASE_URL}}/day/{{num}}/input -sL --fail \
+    -H "Cookie: {{COOKIE}}" \
+    > "$(just day-dir {{num}})/input.txt" \
+  || rm -f "$(just day-dir {{num}})/input.txt"
 
 
 [private]
@@ -98,13 +103,14 @@ clean:
 
 # post an answer to the advent of code website and save it to answers.txt
 answer part answer day=TODAY:
-  curl --fail-with-body -X POST \
+  @ curl -sL --fail-with-body \
+    -X POST \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -H "Cookie: {{COOKIE}}" \
     -d "answer={{answer}}&level={{part}}" \
     {{BASE_URL}}/day/{{day}}/answer \
   | pandoc -f html -t plain
-  echo {{answer}} >> $(just day-dir {{day}})/answers.txt
+  @ echo {{answer}} >> $(just day-dir {{day}})/answers.txt
 
 
 # open the advent of code website for the given day
