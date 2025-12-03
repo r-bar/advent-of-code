@@ -14,6 +14,7 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
   list.map(input.batteries, largest(_, [], 0, on_limit))
   |> sum_values
+  |> int.to_string
   |> Ok
 }
 
@@ -22,6 +23,7 @@ pub fn part2(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
   list.map(input.batteries, largest(_, [], 0, on_limit))
   |> sum_values
+  |> int.to_string
   |> Ok
 }
 
@@ -29,6 +31,9 @@ fn slice(l: List(t), start: Int, stop: Int) -> List(t) {
   list.take(l, stop) |> list.drop(start)
 }
 
+/// The idea here is to get the highest digits into the largest position in the
+/// final digit. A 9 in the 10s place is worth 10x a 9 in the 1s place. So long
+/// as there is a buffer of digits at the end of the list
 fn largest(
   bank: List(Int),
   accum: List(#(Int, Int)),
@@ -45,6 +50,10 @@ fn largest(
   let index_range = list.range(start_index, list.length(bank) + start_index)
   let #(highest, highest_index) =
     list.zip(bank, index_range)
+    // Only pick the highest in the subset of the list that will allow us to
+    // produce a final value even if the last digit in the list is selected.
+    // The slice removes the value of the 1st digit which we use to initialize
+    // the accumulator, and drops "reserved" values for lower ordinal positions.
     |> slice(1, len - { to_pick - 1 })
     |> list.fold(init_highest, fn(accum, i) {
       let #(value, index) = i
@@ -55,6 +64,8 @@ fn largest(
       }
     })
 
+  // Drop all values up to and including the highest found. Lower ordinal values
+  // will be selected from the remaining list.
   let remaining = list.drop(bank, highest_index - start_index + 1)
   largest(
     remaining,
@@ -64,22 +75,29 @@ fn largest(
   )
 }
 
+/// Turns a list of ints into a single integer comprised of those digits
+/// 
+/// Example:
+///     assert int_list_to_digit([3, 5, 7]) == 357
+fn int_list_to_digit(values: List(Int)) -> Int {
+  use accum, i, index <- list.index_fold(values, 0)
+  let power =
+    list.length(values) - index - 1
+    |> int.to_float
+    |> int.power(10, _)
+    |> result.lazy_unwrap(fn() { panic })
+    |> float.truncate()
+  accum + { i * power }
+}
+
+/// Consume the result produced by mapping `largest` over the list of banks,
+/// turn each list of integers and their indexes into the resulting integer
+/// value and total them.
 fn sum_values(largest_result: List(List(#(Int, Int)))) {
   largest_result
-  |> list.map(fn(bank_res) {
-    let values = list.map(bank_res, pair.first)
-    list.index_fold(values, 0, fn(accum, i, index) {
-      let power =
-        list.length(values) - index - 1
-        |> int.to_float
-        |> int.power(10, _)
-        |> result.lazy_unwrap(fn() { panic })
-        |> float.truncate()
-      accum + { i * power }
-    })
-  })
+  |> list.map(list.map(_, pair.first))
+  |> list.map(int_list_to_digit)
   |> list.fold(0, int.add)
-  |> int.to_string
 }
 
 /// The parsed input data structure
