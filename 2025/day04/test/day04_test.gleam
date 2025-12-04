@@ -13,5 +13,5 @@ pub fn part1_test() {
 
 pub fn part2_test() {
   let assert Ok(example) = simplifile.read("example.txt")
-  assert day04.part2(example) == Ok("")
+  assert day04.part2(example) == Ok("43")
 }

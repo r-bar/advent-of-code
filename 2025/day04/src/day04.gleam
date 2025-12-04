@@ -1,5 +1,6 @@
 import gleam/bool
 import argv
+import gleam/set
 import gleam/int
 import gleam/io
 import gleam/list
@@ -14,7 +15,7 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
   let movable = input_fold(input, 0, fn(accum, coord, val) {
     use <- bool.guard(val == 0, accum)
     let full_neighbors =
-      neighbors(input, coord)
+      neighbors(coord)
       |> list.map(lookup(input, _))
       |> list.fold(0, int.add)
     case full_neighbors < 4 {
@@ -27,7 +28,35 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
 
 pub fn part2(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
-  Ok(string.inspect(input))
+  let removed = part2_help(input, 0)
+  Ok(string.inspect(removed))
+}
+
+fn part2_help(input: Input, removed: Int) -> Int {
+  let movable = input_fold(input, set.new(), fn(accum, coord, val) {
+    use <- bool.guard(val == 0, accum)
+    let full_neighbors =
+      neighbors(coord)
+      |> list.map(lookup(input, _))
+      |> list.fold(0, int.add)
+    case full_neighbors < 4 {
+      True -> set.insert(accum, coord)
+      False -> accum
+    }
+  })
+  case set.size(movable) {
+    0 -> removed
+    _ -> {
+      let new_input = input_map(input, fn(coord, val) {
+        case set.contains(movable, coord) {
+          True -> 0
+          False -> val
+        }
+      })
+      part2_help(new_input, removed + set.size(movable))
+    }
+  }
+  
 }
 
 /// The parsed input data structure
@@ -53,6 +82,15 @@ fn parse_input(input_data: String) -> Result(Input, AppError) {
   |> result.map(Input)
 }
 
+fn input_map(input: Input, pred: fn(Coordinate, Int) -> Int) -> Input {
+  iv.index_map(input.grid, fn(row, y) {
+    iv.index_map(row, fn(val, x) {
+      pred(Coordinate(x, y), val)
+    })
+  })
+  |> Input
+}
+
 fn input_fold(input: Input, init: t, pred: fn(t, Coordinate, Int) -> t) -> t {
   use row_accum, row, y <- iv.index_fold(input.grid, init)
   use val_accum, val, x <- iv.index_fold(row, row_accum)
@@ -68,7 +106,7 @@ fn parse_line(line: String) -> Result(Array(Int), AppError) {
   }
 }
 
-fn neighbors(input: Input, coord: Coordinate) -> List(Coordinate) {
+fn neighbors(coord: Coordinate) -> List(Coordinate) {
   [
     n_of(coord),
     s_of(coord),
