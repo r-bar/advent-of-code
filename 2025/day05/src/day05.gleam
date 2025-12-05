@@ -1,16 +1,14 @@
-import gleam/bool
 import argv
-import gleam/set
+import gleam/bool
 import gleam/int
 import gleam/io
 import gleam/list
 import gleam/pair
 import gleam/result
 import gleam/string
-import gleam/option.{type Option, Some, None}
 import gleither.{type Either, Left, Right}
-import simplifile
 import iv.{type Array}
+import simplifile
 
 pub fn part1(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
@@ -22,7 +20,7 @@ pub fn part1(input_data: String) -> Result(String, AppError) {
 
 pub fn part2(input_data: String) -> Result(String, AppError) {
   use input <- result.try(parse_input(input_data))
-  let work = list.sort(input.fresh, fn(a, b) { int.compare(a.lower, b.lower)})
+  let work = list.sort(input.fresh, fn(a, b) { int.compare(a.lower, b.lower) })
   let merged_state = part2_help(State(work, iv.new()))
   iv.map(merged_state.merged, range_size)
   |> iv.fold(0, int.add)
@@ -31,34 +29,26 @@ pub fn part2(input_data: String) -> Result(String, AppError) {
 }
 
 type State {
-  State(
-  work: List(Range),
-  merged: Array(Range),
-)
+  State(work: List(Range), merged: Array(Range))
 }
 
 fn part2_help(state: State) -> State {
   use <- bool.guard(state.work == [], state)
   let assert [fresh, ..remaining] = state.work
-  let new_merged = case iv.find_index(state.merged, overlap(fresh, _)) {
-    Ok(overlap_index) -> {
-      let assert Ok(overlap) = iv.get(state.merged, overlap_index)
-      let assert Right(union) = union_ranges(fresh, overlap)
-      iv.set(state.merged, overlap_index, union)
-      |> result.lazy_unwrap(fn() { panic })
-    }
-    Error(_) -> iv.append(state.merged, fresh)
+  use <- bool.lazy_guard(iv.length(state.merged) == 0, fn() {
+    part2_help(State(remaining, iv.append(state.merged, fresh)))
+  })
+  let assert Ok(merged) = iv.last(state.merged)
+  let new_merged = case union_ranges(merged, fresh) {
+    Left(_) -> iv.append(state.merged, fresh)
+    Right(union) -> iv.drop_last(state.merged, 1) |> iv.append(union)
   }
   part2_help(State(remaining, new_merged))
 }
 
 /// The parsed input data structure
 type Input {
-  Input(
-    parser_mode: ParserMode,
-    fresh: List(Range),
-    ids: List(Int),
-  )
+  Input(parser_mode: ParserMode, fresh: List(Range), ids: List(Int))
 }
 
 fn parse_input(input_data: String) -> Result(Input, AppError) {
@@ -68,7 +58,7 @@ fn parse_input(input_data: String) -> Result(Input, AppError) {
   |> list.index_map(pair.new)
   |> list.try_fold(Input(FreshRange, [], []), fn(accum, input) {
     let #(line, lineno) = input
-    let parser = case accum.parser_mode {
+    case accum.parser_mode {
       FreshRange -> {
         case parse_fresh_range_line(line) {
           Ok(v) -> Ok(Input(..accum, fresh: list.prepend(accum.fresh, v)))
@@ -81,18 +71,19 @@ fn parse_input(input_data: String) -> Result(Input, AppError) {
         case parse_id(line) {
           Ok(v) -> Ok(Input(..accum, ids: list.prepend(accum.ids, v)))
           Error(EmptyLine) -> Ok(accum)
-          Error(InputError(_, message)) ->
-            Error(InputError(lineno, message))
+          Error(InputError(_, message)) -> Error(InputError(lineno, message))
           Error(e) -> Error(e)
         }
       }
     }
   })
-  |> result.map(fn(input) { Input (
-    ..input,
-    fresh: list.reverse(input.fresh),
-    ids: list.reverse(input.ids),
-  )})
+  |> result.map(fn(input) {
+    Input(
+      ..input,
+      fresh: list.reverse(input.fresh),
+      ids: list.reverse(input.ids),
+    )
+  })
 }
 
 fn range_size(range: Range) -> Int {
@@ -120,8 +111,10 @@ fn is_fresh(fresh: List(Range), id: Int) -> Bool {
 }
 
 fn overlap(a: Range, b: Range) -> Bool {
-  a.lower <= b.lower && b.lower <= a.upper
-  || b.lower <= a.lower && a.lower <= b.upper
+  a.lower <= b.lower
+  && b.lower <= a.upper
+  || b.lower <= a.lower
+  && a.lower <= b.upper
 }
 
 fn union_ranges(a: Range, b: Range) -> Either(#(Range, Range), Range) {
