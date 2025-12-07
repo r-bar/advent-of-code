@@ -1,8 +1,14 @@
+from pprint import pprint, pformat
+from collections import defaultdict, abc
 from dataclasses import dataclass
 import sys
 import typing as t
 import enum
 import copy
+import itertools as it
+
+
+Coord: t.TypeAlias = tuple[int, int]
 
 
 class Cell(enum.Enum):
@@ -26,7 +32,6 @@ class Cell(enum.Enum):
 @dataclass
 class Grid:
     rows: list[list[Cell]]
-    splits_hit: int = 0
 
     def __repr__(self) -> str:
         name = self.__class__.__name__
@@ -48,39 +53,23 @@ class Grid:
             case None | Cell.splitter:
                 return False
             case to_set if to_set == cell:
-                return False
+                return True
             case _:
                 self.rows[y][x] = cell
                 return True
 
-    def find_start(self) -> tuple[int, int] | None:
+    def find_start(self) -> Coord | None:
         for y, row in enumerate(self.rows):
             for x, cell in enumerate(row):
                 if cell == Cell.start:
                     return x, y
         return None
 
-    def propagate(self, beam_x: int, beam_y: int) -> t.Self:
-        work = [(beam_x, beam_y)]
-        while work:
-            x, y = work.pop()
-            below = self.get(x, y + 1)
-            match below:
-                case Cell.empty:
-                    was_set = self.set(x, y + 1, Cell.beam)
-                    if was_set:
-                        work.append((x, y + 1))
-                case Cell.splitter:
-                    self.splits_hit += 1
-                    left_set = self.set(x - 1, y + 1, Cell.beam)
-                    right_set = self.set(x + 1, y + 1, Cell.beam)
-                    if left_set:
-                        work.append((x - 1, y + 1))
-                    if right_set:
-                        work.append((x + 1, y + 1))
-                case _:
-                    pass
-        return self
+    def bottom_beams(self) -> abc.Iterator[Coord]:
+        y = len(self.rows) - 1
+        for x, cell in enumerate(self.rows[-1]):
+            if cell == Cell.beam:
+                yield x, y
 
 
 def char_to_cell(char: str) -> Cell:
@@ -108,12 +97,53 @@ def parse_input(content: str) -> Grid:
 def part1(content: str) -> int:
     grid = parse_input(content)
     startx, starty = grid.find_start()
-    grid.propagate(startx, starty)
-    return grid.splits_hit
+    work = [(startx, starty)]
+    splits_hit = 0
+    while work:
+        x, y = work.pop()
+        below = grid.get(x, y + 1)
+        match below:
+            case Cell.empty:
+                was_set = grid.set(x, y + 1, Cell.beam)
+                if was_set:
+                    work.append((x, y + 1))
+            case Cell.splitter:
+                splits_hit += 1
+                left_set = grid.set(x - 1, y + 1, Cell.beam)
+                right_set = grid.set(x + 1, y + 1, Cell.beam)
+                if left_set:
+                    work.append((x - 1, y + 1))
+                if right_set:
+                    work.append((x + 1, y + 1))
+            case _:
+                pass
+    return splits_hit
 
 
 def part2(content: str) -> int:
-    raise NotImplementedError
+    grid = parse_input(content)
+    start: Coord = grid.find_start()
+    beams = defaultdict(int)
+    beams[start[0]] = 1
+    for row in grid.rows:
+        new_beams = defaultdict(int)
+        for x, c in beams.items():
+            if row[x] == Cell.splitter:
+                new_beams[x - 1] += c
+                new_beams[x + 1] += c
+            else:
+                new_beams[x] += c
+        beams = new_beams
+    return sum(beams.values())
+
+
+def dfs(links: dict[Coord, abc.Iterable[Coord]], start: list[Coord], end: Coord) -> abc.Iterable[tuple[Coord, ...]]:
+    outs = links[start[0]]
+    for out in outs:
+        if out == end:
+            yield tuple((out, *start))
+        else:
+            yield from dfs(links, [out, *start], end)
 
 
 def main():
