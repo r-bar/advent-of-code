@@ -1,13 +1,12 @@
-from collections import defaultdict
 import dataclasses as dc
+import functools as fn
+import itertools as it
+import logging
+import operator as op
+import re
 import sys
 import typing as t
-import itertools as it
-import functools as fn
-import operator as op
-import logging
-import re
-
+from collections import defaultdict
 
 Vec3: t.TypeAlias = tuple[int, int, int]
 Connection: t.TypeAlias = tuple[Vec3, Vec3]
@@ -48,10 +47,37 @@ def part1(content: str, connection_limit=1000) -> int:
                 connections_made += 1
                 distances.pop(index)
     circuits = network.circuits()
-    # logging.debug(f"{circuits}")
     circuit_sizes = sorted((len(circuit) for circuit in circuits), reverse=True)
     logging.debug(f"{circuit_sizes=}")
     return fn.reduce(op.mul, circuit_sizes[:3])
+
+
+def part2(content: str) -> int:
+    input = parse_input(content)
+    boxes = {*input.boxes}
+    network = Network()
+    distances = sorted((distance(a, b), pair(a, b)) for a, b in it.combinations(boxes, 2))
+    connections_made = 0
+    last_connection = None
+    while distances:
+        for index, (dist, (a, b)) in enumerate(distances):
+            if network.can_connect(a, b):
+                network.connect(a, b)
+                distances.pop(index)
+                connections_made += 1
+                last_connection = a, b
+                logging.debug(f"Connected {a} to {b} at distance {dist}")
+                break
+            else:
+                connections_made += 1
+                distances.pop(index)
+        if len(network.connected) == len(input.boxes) and len(network.circuits()) == 1:
+            break
+    logging.debug(f"Finished {connections_made=} {last_connection=} {len(distances)=}")
+    assert last_connection is not None
+    (ax, _, _), (bx, _, _) = last_connection
+    return ax * bx
+
 
 def test_part1(caplog) -> None:
     with open("example.txt") as f:
@@ -62,6 +88,15 @@ def test_part1(caplog) -> None:
     assert re.match(r"Connected \(162, 817, 812\) to \(431, 825, 988\)", caplog.records[1].message)
     assert re.match(r"Connected \(805, 96, 715\) to \(906, 360, 560\)", caplog.records[2].message)
     assert answer == 40
+
+
+def test_part2(caplog) -> None:
+    with open("example.txt") as f:
+        example = f.read()
+    with caplog.at_level(logging.DEBUG):
+        answer = part2(example)
+    assert answer == 25272
+
 
 def distance(a: Vec3, b: Vec3) -> int:
     ax, ay, az = a
@@ -81,7 +116,6 @@ class Network:
         self.connected[b].add(a)
 
     def can_connect(self, a: Vec3, b: Vec3) -> bool:
-        to_check = self.connections()
         if not (a in self.connected and b in self.connected):
             return True
         # if both junctions are members of the set of connections then we have to
@@ -95,12 +129,10 @@ class Network:
         connections = self.connections()
         for left, right in connections:
             if left == a or right == a:
-                start = a
-                end = b
+                start, end = a, b
                 break
             if left == b or right == b:
-                start = b
-                end = a
+                start, end = b, a
                 break
         visited = set()
         work = [start]
@@ -138,11 +170,6 @@ class Network:
 
 def pair(a: Vec3, b: Vec3) -> Connection:
     return tuple(sorted((a, b)))  # type: ignore[return-value]
-
-
-
-def part2(content: Input) -> int:
-    raise NotImplementedError
 
 
 def main():

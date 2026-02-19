@@ -3,3 +3,4 @@
 pandoc = "3"
 "ubi:roc-lang/roc" = { version = "alpha4-rolling", extract_all = true }
 cookiecutter = "2"
+nim = "latest"
