@@ -10,39 +10,42 @@ template todo* =
 
 type Machine* = object
     size*: uint8 = 0
-    lights*: uint16 = 0
-    target*: uint16 = 0
+    lightsReq*: uint16 = 0
     schematics*: seq[uint16] = @[]
     joltageReqs*: seq[int] = @[]
-    joltage*: seq[int] = @[]
 
 
 func showBits*(x: uint16): string =
     var s = "................"
     for i in 0..15:
-        if bitand(x, 1'u16 shl i) != 0:
+        if bitand(x shr i, 1'u16) == 1:
             s[^(i + 1)] = '#'
     return s
 
 
-func onBits*(x: uint16, size: uint8): seq[uint8] =
+func onBits*(x: uint16): seq[int] =
     for i in 0..15:
-        if bitand(x, 1'u16 shl i) != 0:
-            result.add(cast[uint8](i))
+        if bitand(x shr i, 1'u16) == 1:
+            result.add(i)
+
+
+func countOnBits*(x: uint16): int =
+    for i in 0..15:
+        if bitand(x shr i, 1'u16) == 1:
+            result += 1
+    
 
 
 func `$`* (m: Machine): string =
     var s = "Machine("
     s &= fmt"size: {m.size}"
     s &= ", "
-    s &= fmt"lights: ({m.lights}) {showBits(m.lights)}"
+    s &= fmt"lightsReq: ({m.lightsReq}) {showBits(m.lightsReq)}"
     s &= ", "
-    s &= fmt"target: ({m.target}) {showBits(m.target)}"
-    s &= ", "
-    var schematics = newSeq[seq[uint8]](m.schematics.len)
+    var schematics = newSeq[seq[int]](m.schematics.len)
     for (i, schematic) in enumerate(0, m.schematics):
-        schematics[i] = onBits(schematic, m.size)
-    s &= fmt"schematics: {schematics} (broken)"
+        schematics[i] = onBits(schematic)
+    s &= fmt"schematics: {schematics}"
     s &= ", "
     s &= fmt"joltageReqs: {m.joltageReqs}"
     s &= ")"
@@ -53,18 +56,16 @@ func apply*(initial: uint16, schematic: uint16): uint16 =
     bitxor(initial, schematic)
 
 
-proc reset*(machine: var Machine) =
-    machine.lights = 0
-
-
-proc press*(machine: var Machine, button: uint16) =
-    let schematic = machine.schematics[button]
-    machine.lights = apply(machine.lights, schematic)
-
-
-func tryPress*(machine: var Machine, button: Natural): uint16 =
-    let schematic = machine.schematics[button]
-    return apply(machine.lights, schematic)
+func japply*(initial: openArray[int], schematic: uint16): seq[int] =
+    let size = initial.len
+    var output = newSeq[int](initial.len)
+    for i in 0..initial.high:
+        # Check bit at reversed position to match parsing
+        if bitand(schematic shr (size - 1 - i), 1'u16) == 1:
+            output[i] = initial[i] + 1
+        else:
+            output[i] = initial[i]
+    return output
 
 
 func matchingLights*(target: uint16, state: uint16): int =
@@ -74,8 +75,6 @@ func matchingLights*(target: uint16, state: uint16): int =
         if t == s:
             result += 1
 
-proc subsearch(machine: Machine, button: openArray[int]): seq[int] =
-    todo
 
 proc copyAnd[T](base: openArray[T], elm: T): seq[T] =
     var new = newSeq[int](base.len + 1)
@@ -136,9 +135,9 @@ proc parseLine*(input: string): Machine {.raises: [Exception].}=
                     case section:
                     of lightsSection:
                         machine.size += 1
-                        machine.target = machine.target shl 1
+                        machine.lightsReq = machine.lightsReq shl 1
                         if cap == "#":
-                            machine.target += 1
+                            machine.lightsReq += 1
                     of schematicSection:
                         let bit = cast[int](machine.size) - 1 - cap.parseInt()
                         flipbit(schematic, bit)
@@ -154,6 +153,6 @@ proc parseLine*(input: string): Machine {.raises: [Exception].}=
         let details = exceptions.join("\n")
         raise newException(ValueError, "Errors while parsing line:\n" & details)
 
-    machine.joltage.setLen(machine.size)
+    assert machine.joltageReqs.len == cast[int](machine.size)
 
     return machine

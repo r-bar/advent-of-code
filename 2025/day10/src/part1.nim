@@ -1,46 +1,3 @@
-import std/deques
-import std/sequtils
-import std/enumerate
-import std/strutils
-import std/strformat
-import std/os
-import std/syncio
-import std/cmdline
-import day10/machine
-
-
-template todo* =
-  raise newException(Defect, "Not implemented yet")
-
-
-proc usage() =
-    let progName = getAppFilename()
-    echo(fmt"Usage: {progname} <inputFile>")
-
-
-proc getInputFilename(): string =
-    let params = commandLineParams()
-    case params.len:
-        of 1:
-            return params[0]
-        of 0:
-            echo("Error: No input file provided")
-            usage()
-            quit(1)
-        else:
-            echo("Error: Too many arguments")
-            usage()
-            quit(1)
-
-
-proc getInputData(inputFile: string): string =
-    try:
-        return readFile(inputFile)
-    except IoError:
-        echo("Error: Could not read the input file.")
-        quit(1)
-
-
 iterator counter(max = -1): int =
     var i = 0
     while max == -1 or i < max:
@@ -49,10 +6,9 @@ iterator counter(max = -1): int =
     
 
 proc search*(machine: Machine): uint16 =
-    if machine.target == machine.lights:
-        return 0
-    let initialScore = -1
-    let initial: (uint16, uint16, int) = (0, machine.lights, initialScore)
+    let initScore = -1
+    let initState = newSeq[int](machine.lightsReq.len)
+    let initial: (uint16, uint16, int) = (0, initState, initScore)
     var work = initDeque[typeof(initial)]()
     work.addLast(initial)
     let maxDepth = 100'u16
@@ -64,18 +20,18 @@ proc search*(machine: Machine): uint16 =
         for buttonIdx in 0..machine.schematics.high:
             let button = machine.schematics[buttonIdx]
             let state = apply(prevState, button)
-            # let score = matchingLights(machine.target, state)
+            # let score = matchingLights(machine.lightsReq, state)
             let pressed = prevPressed + 1
             # echo("prevState: ", showBits(prevState))
             # echo("Button:    ", showBits(button))
             # echo("State:     ", showBits(state))
-            # echo("Target:    ", showBits(machine.target))
+            # echo("Target:    ", showBits(machine.lightsReq))
             # echo("Pressed:   ", pressed)
             # echo("Score:     ", score)
-            if state == machine.target:
+            if state == machine.lightsReq:
                 return pressed
             # if score >= minScore:
-            work.addLast((pressed, state, initialScore))
+            work.addLast((pressed, state, initScore))
 
     raise newException(Exception, "Search queue exhaused")
 
