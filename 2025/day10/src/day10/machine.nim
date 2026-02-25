@@ -33,7 +33,6 @@ func countOnBits*(x: uint16): int =
     for i in 0..15:
         if bitand(x shr i, 1'u16) == 1:
             result += 1
-    
 
 
 func `$`* (m: Machine): string =
@@ -83,6 +82,7 @@ proc copyAnd[T](base: openArray[T], elm: T): seq[T] =
     new[base.len] = elm
     return new
 
+
 let lineParser: Peg = peg"""
 start <- line
 line <- lights ig (schematic ig)+ joltage
@@ -97,8 +97,10 @@ light <- '#' / '.'
 ig <- \s*
 """
 
+
 type Section = enum
     lightsSection, schematicSection, joltageSection
+
 
 proc parseLine*(input: string): Machine {.raises: [Exception].}=
     var section = lightsSection

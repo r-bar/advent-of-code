@@ -1,3 +1,5 @@
+import std/deques
+import std/bitops
 import std/sequtils
 import std/math
 import std/tables
@@ -40,12 +42,24 @@ proc getInputFilename(): string =
             quit(1)
 
 
-proc getInputData(inputFile: string): string =
+proc getInputData*(inputFile: string): string =
     try:
         return readFile(inputFile)
     except IoError:
         echo("Error: Could not read the input file.")
         quit(1)
+
+
+proc loadInput*(inputFilename: string): seq[Machine] =
+    let inputData = getInputData(inputFilename)
+    let lines = inputData.splitLines()
+    for i in 0..lines.high():
+        let line = lines[i]
+        if line == "":
+            continue
+        let machine = parseLine(line)
+        # echo(fmt"Machine {i}: {line} -> {machine}")
+        result.add(machine)
 
 
 type Jstate = enum
@@ -94,133 +108,193 @@ proc scoreSchematic(state: openArray[int], target: openArray[int]): int =
 proc searchCacheKey(state: seq[int], schematic: uint16): string =
     return fmt"{state}+{schematic}"
 
-proc search(
+func select[T](s: openArray[T], indices: openArray[int]): seq[T] =
+    for i in indices:
+        result.add(s[i])
+
+iterator combinations*[T](pool: openArray[T]): seq[T] {.closure.} =
+    var i = 1'u16
+    let last: uint16 = cast[uint16](2 ^ pool.len)
+    while i < last:
+        yield select(pool, onBits(i))
+        i += 1
+
+proc parity(s: openArray[int]): uint16 =
+    ## Returns a 16-bit integer where each bit i indicates whether the number of
+    ## odd values in s is odd (1) or even (0) at position i.
+    var parity = 0'u16
+    for (i, n) in enumerate(0, s):
+        let even = cast[uint16](n mod 2)
+        parity = bitxor(parity, even shl i)
+    return parity
+
+
+proc reduce[T](s: openArray[T], op: proc (a: T, b: T): T): T =
+    if s.len == 0:
+        return default(T)
+    if s.len == 1:
+        return s[0]
+    var a = s[0]
+    for i in 1..s.high:
+        let b = s[i]
+        a = op(a, b)
+    return a
+
+
+proc map[T, R](a: seq[T], f: proc (x: T): R): seq[R] =
+    var output = newSeq[R](a.len)
+    for i in 0..a.high:
+        output[i] = f(a[i])
+    return output
+
+
+proc mapMut[T, R](a: var openArray[T], f: proc (x: T): R): void =
+    for i in 0..a.high:
+        a[i] = f(a[i])
+
+
+proc negSeq(a: openArray[int]): seq[int] =
+    var output = newSeq[int](a.len)
+    for i in 0..a.high:
+        output[i] = -1 * a[i]
+    return output
+
+proc binopSeq[T](left: openArray[T], right: openArray[T], op: proc (x: T, y: T): T): seq[T] =
+    for (l, r) in zip(left, right):
+        result.add(op(l, r))
+
+
+proc addSeq[T](a: openArray[T], b: openArray[T]): seq[T] =
+    return binopSeq(a, b) do (x, y: T) -> T:
+        x + y
+
+proc sum[T](a: openArray[T]): T =
+    if a.len == 0:
+        return default(T)
+    var total = a[0]
+    for x in a[1..a.high]:
+        total += x
+    return total
+
+proc extendFirst[T](d: var Deque[T], a: openArray[T]): void =
+    for x in reversed(a):
+        d.addFirst(x)
+
+proc extendLast[T](d: var Deque[T], a: openArray[T]): void =
+    for x in a:
+        d.addLast(x)
+
+proc subFromState(state: seq[int], pressed: openArray[uint16]): seq[int] =
+    var state: seq[int] = state
+    for button in pressed:
+        let pressedValues = negSeq(japply(newSeq[int](state.len), button))
+        state = addSeq(state, pressedValues)
+    return state
+    
+
+# proc bitxorp(a: uint16, b: uint16): uint16 =
+#     a bitxor b
+
+proc phase1Search*(
     machine: Machine,
-    cache: var Table[string, int],
-    startState: Option[seq[int]] = none(seq[int]),
-    pressed: int = 0,
+    cache: var TableRef[string, seq[seq[uint16]]],
+    target: Option[seq[int]] = none(seq[int]),
+): seq[seq[uint16]] =
+    var reqs: seq[int]
+    if target.isSome():
+        reqs = target.get()
+    else:
+        reqs = machine.joltageReqs
+    let key = fmt"{reqs}"
+    if cache.contains(key):
+        return cache[key]
+    var validPresses = newSeq[seq[uint16]]()
+    for pressed in combinations(machine.schematics):
+        let combinedPress = pressed.reduce() do (a, b: uint16) -> uint16:
+            a xor b
+        # let pressedValues = japply(newSeq[int](machine.size), combinedPress)
+        # let remainder = addSeq(reqs, negSeq(pressedValues))
+        let remainder = subFromState(reqs, pressed)
+        let positive = all(remainder, proc (x: int): bool = x >= 0)
+        if positive and parity(remainder) == 0:
+            validPresses.add(pressed)
+    validPresses.sort() do (a, b: seq[uint16]) -> int:
+        cmp(a.len, b.len)
+    cache[key] = validPresses
+    return validPresses
+
+
+proc phase2Search(
+    machine: Machine,
+    cache: TableRef[string, int],
 ): int =
-    var state = newSeq[int](machine.size)
-    if startState.isSome():
-        state = startState.get()
+    todo
 
-    proc scoreKey(a: uint16, b: uint16): int =
-        let aState = japply(state, a)
-        let bState = japply(state, b)
-        let aScore = scoreSchematic(aState, machine.joltageReqs)
-        let bScore = scoreSchematic(bState, machine.joltageReqs)
-        return cmp(aScore, bScore)
 
-    case checkJoltageState(machine, state)
-    of equal: return pressed
-    of invalid: return -1
-    of valid: discard
+proc search*(
+    machine: Machine,
+): int =
+    var pressed = 0
+    var cache = newTable[string, seq[seq[uint16]]]()
+    var work = initDeque[(int, seq[uint16], seq[int], int)]()
+    if sum(machine.joltageReqs) == 0:
+        return pressed
 
-    type SortedSchematic = (int, uint16, seq[int])
+    # phase 1
 
-    var sortedSchematics = newSeqofCap[SortedSchematic](machine.schematics.len())
-    for schematic in machine.schematics:
-        let newState = japply(state, schematic)
-        let score = scoreSchematic(newState, machine.joltageReqs)
-        if score >= 0:
-            sortedSchematics.add((score, schematic, newState))
-    sortedSchematics.sort(proc (a, b: SortedSchematic): int = cmp(a[0], b[0]))
+    if parity(machine.joltageReqs) == 0:
+        work.addLast((0, @[], machine.joltageReqs, 0))
+    else:
+        for initPressed in phase1Search(machine, cache):
+            var pressedState = subFromState(machine.joltageReqs, initPressed)
+            work.addLast((initPressed.len, initPressed, pressedState, 0))
 
-    for (score, schematic, newState) in sortedSchematics:
-        let key = fmt"{state}+{schematic}"
-        var presses: int
+    # phase 2
 
-        # presses = search(machine, cache, some(newState), pressed + 1)
-        if cache.hasKey(key):
-            presses = cache[key]
-        else:
-            presses = search(machine, cache, some(newState), pressed + 1)
-            cache[key] = presses
-
-        if presses >= 0:
-            return presses
+    while work.len > 0:
+        var (prevPresses, prevPressed, state, depth) = work.popFirst()
+        if work.len > 5000:
+            echo((prevPresses, state, depth))
+            quit(1)
+        if sum(state) == 0:
+            echo(fmt"prevPressed ", prevPressed)
+            return prevPresses
+        let halfState = map(state) do (x: int) -> int:
+            floordiv(x, 2)
+        var nextPresses = phase1Search(machine, cache, some(halfState))
+        for press in nextPresses:
+            let nextState = subFromState(halfState, press)
+            if any(nextState, proc (x: int): bool = x < 0):
+                echo("Exited due to negative state!!")
+                echo("halfstate: ", halfState)
+                echo("nextState: ", nextState)
+                echo("state: ", state)
+                echo("nextPresses: ", nextPresses)
+                quit(1)
+            work.addFirst((
+                prevPresses + 2 * press.len,
+                prevPressed & press & press,
+                nextState,
+                depth + 1,
+            ))
 
     return -1
 
+proc main() =
 
-let inputFilename = getInputFilename()
-let inputData = getInputData(inputFilename)
+    let inputFilename = getInputFilename()
+    let machines = loadInput(inputFilename)
 
-var machines: seq[Machine] = @[]
-let lines = inputData.splitLines()
-for i in 0..lines.high():
-    let line = lines[i]
-    if line == "":
-        continue
-    let machine = parseLine(line)
-    # echo(fmt"Machine {i}: {line} -> {machine}")
-    machines.add(machine)
+    var answer = 0
+    var machineId = 0
+    for machine in machines:
+        var cache = newTable[uint16, seq[uint16]]()
+        let presses = search(machine)
+        echo(fmt"Presses: {presses} <- Machine ({machineId}) {machine}")
+        answer += presses
+        machineId += 1
 
+    echo answer
 
-type SolvedMsg = object
-    threadId: int
-    machineId: int
-    presses: int
-
-
-type ThreadControl = enum process, stop
-
-
-type SearchMsg = object
-    control: ThreadControl = process
-    machineId: int = 0
-    machine: Machine = Machine()
-
-
-var tx: Channel[SearchMsg]
-var rx: Channel[SolvedMsg]
-
-proc searchWorker(threadId: int) {.thread, gcsafe.} =
-    var searchCache = initTable[string, int]()
-    while true:
-        let msg = tx.recv()
-        if msg.control == stop:
-            break
-        searchCache.clear()
-        let presses = search(msg.machine, searchCache)
-        rx.send(SolvedMsg(threadId: threadId, machineId: msg.machineId, presses: presses))
-    echo(fmt"Worker {threadId} exited")
-
-let threadCount = 4
-var threads = newSeq[Thread[int]](threadCount)
-rx.open()
-tx.open()
-
-
-for thread in 0..<threadCount:
-    createThread[int](threads[thread], searchWorker, thread)
-
-var idle = initIntSet()
-for i in 0..<threadCount:
-    idle.incl(i)
-
-var outstanding = initIntSet()
-for (i, machine) in enumerate(machines):
-    outstanding.incl(i)
-    tx.send(SearchMsg(machineId: i, machine: machine))
-
-var sum = 0
-while outstanding.len > 0:
-    let msg = rx.recv()
-    let recvdMachine = machines[msg.machineId]
-    outstanding.excl(msg.machineId)
-    echo(fmt"Presses: {msg.presses} Machine {msg.machineId}: {recvdMachine}")
-    if msg.presses >= 0:
-        sum += msg.presses
-
-for threadId in 0..threads.high:
-    tx.send(SearchMsg(control: stop, machineId: threadId))
-
-for thread in threads:
-    thread.joinThread()
-
-rx.close()
-tx.close()
-
-echo(sum)
-
+if isMainModule:
+    main()
